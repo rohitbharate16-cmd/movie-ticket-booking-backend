@@ -14,13 +14,17 @@ const paymentRoutes = require("./routes/paymentRoutes");
 
 const app = express();
 const port = Number(process.env.PORT) || 4000;
-const allowedOrigins = String(process.env.CORS_ALLOWED_ORIGINS || "http://127.0.0.1:5500,http://localhost:5500")
+const allowedOrigins = String(
+  process.env.CORS_ALLOWED_ORIGINS
+  || "http://127.0.0.1:5500,http://localhost:5500,https://movie-ticket-booking-frontend-one.vercel.app"
+)
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
 app.use(helmet());
 app.use(cors({
+  credentials: true,
   origin(origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
