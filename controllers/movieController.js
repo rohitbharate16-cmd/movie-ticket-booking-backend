@@ -42,6 +42,45 @@ const getMovie = async (req, res) => {
   }
 };
 
+const getMoviePoster = async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("movies")
+      .select("id, image_url")
+      .eq("id", req.params.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const posterUrl = String(data?.image_url || "").trim();
+
+    if (!posterUrl) {
+      return res.status(404).json({ error: "Poster not found" });
+    }
+
+    const posterResponse = await fetch(posterUrl);
+
+    if (!posterResponse.ok) {
+      return res.status(posterResponse.status).json({
+        error: `Poster request failed with status ${posterResponse.status}`
+      });
+    }
+
+    const contentType = posterResponse.headers.get("content-type") || "image/jpeg";
+    const cacheControl = posterResponse.headers.get("cache-control") || "public, max-age=3600";
+    const buffer = Buffer.from(await posterResponse.arrayBuffer());
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", cacheControl);
+    return res.send(buffer);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 const upsertMovies = async (movies) => {
   const { data, error } = await supabaseAdmin
     .from("movies")
@@ -177,6 +216,7 @@ const purgeMovies = async (req, res) => {
 module.exports = {
   listMovies,
   getMovie,
+  getMoviePoster,
   createMovie,
   bulkUpsertMovies,
   updateMovie,
