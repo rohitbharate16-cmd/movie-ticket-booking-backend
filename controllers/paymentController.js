@@ -25,6 +25,10 @@ const getPriceMultiplier = (format) => {
     return { regular: 20, silver: 30, gold: 40 };
   }
 
+  if (format === "IMAX") {
+    return { regular: 30, silver: 45, gold: 60 };
+  }
+
   if (format === "4DX") {
     return { regular: 50, silver: 70, gold: 90 };
   }
@@ -82,6 +86,7 @@ const getBookingDraftTotals = async (userId, draft = {}) => {
   const snacks = Array.isArray(draft.snacks) ? draft.snacks : [];
   const movieId = String(draft?.movieId || "").trim();
   const showId = String(draft?.show?.showId || "").trim();
+  const draftShow = draft?.show || {};
 
   if (!movieId || !showId || !seats.length) {
     return { seats, snacks, seatTotal: 0, snacksTotal: 0, freeTicketDiscount: 0, payableAmount: 0 };
@@ -103,12 +108,24 @@ const getBookingDraftTotals = async (userId, draft = {}) => {
     .eq("id", showId)
     .maybeSingle();
 
-  if (showError || !showRow || showRow.movie_id !== movieId) {
+  const resolvedShow = !showError && showRow && showRow.movie_id === movieId
+    ? {
+        id: showRow.id,
+        show_date: showRow.show_date,
+        format: showRow.format
+      }
+    : {
+        id: null,
+        show_date: String(draftShow.showDate || "").trim() || null,
+        format: String(draftShow.format || "2D").trim().toUpperCase()
+      };
+
+  if (!resolvedShow.show_date || !resolvedShow.format) {
     throw new Error("Show pricing could not be found.");
   }
 
-  const format = String(showRow.format || "2D").toUpperCase();
-  const dayPricing = priceListingByDay[getWeekdayName(showRow.show_date)] || priceListingByDay.Monday;
+  const format = String(resolvedShow.format || "2D").toUpperCase();
+  const dayPricing = priceListingByDay[getWeekdayName(resolvedShow.show_date)] || priceListingByDay.Monday;
   const weekdayBoost = normalizeMoney(dayPricing?.[format]);
   const formatBoost = getPriceMultiplier(format);
   const tierPrices = {
@@ -173,6 +190,9 @@ const getBookingDraftTotals = async (userId, draft = {}) => {
     freeTicketDiscount: freeTicket.discount,
     freeTicketClaimed: freeTicket.claimed,
     freeTicketDate: freeTicket.date,
+    resolvedShowId: resolvedShow.id,
+    resolvedShowDate: resolvedShow.show_date,
+    resolvedFormat: format,
     totalAmount: seatTotal + snacksTotal,
     payableAmount: Math.max(0, seatTotal + snacksTotal - freeTicket.discount)
   };
@@ -208,11 +228,11 @@ const buildBookingPayload = async (user, draft, totals, stripeSessionId) => {
     user_name: String(profile.full_name || user.email?.split("@")[0] || "Movie Lover"),
     movie_id: String(draft?.movieId || ""),
     movie_name: String(draft?.movieName || draft?.movieId || "Movie Dekho"),
-    show_id: String(show.showId || ""),
-    show_date: show.showDate || null,
+    show_id: totals.resolvedShowId || null,
+    show_date: totals.resolvedShowDate || show.showDate || null,
     show_time: String(show.timeLabel || show.showTimeValue || ""),
     hall_name: show.hallName || null,
-    show_format: show.format || null,
+    show_format: totals.resolvedFormat || show.format || null,
     seats: totals.seats,
     snacks: totals.snacks,
     seat_total: totals.seatTotal,
