@@ -6,6 +6,7 @@ const listMovies = async (_req, res) => {
       .from("movies")
       .select("*")
       .eq("is_active", true)
+      .order("display_order", { ascending: true, nullsFirst: false })
       .order("name");
 
     if (error) {

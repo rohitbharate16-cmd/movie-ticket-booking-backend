@@ -11,6 +11,7 @@ create table if not exists public.profiles (
 create table if not exists public.movies (
   id text primary key,
   name text not null,
+  display_order integer,
   image_url text not null,
   rating text,
   votes text,

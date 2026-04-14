@@ -138,10 +138,28 @@ const deleteBooking = async (req, res) => {
   }
 };
 
+const purgeAllBookings = async (_req, res) => {
+  try {
+    const { error } = await supabaseAdmin
+      .from("bookings")
+      .delete()
+      .not("id", "is", null);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ message: "All bookings deleted successfully." });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   createBooking,
   getMyBookings,
   getAllBookings,
   getBookingsByShow,
-  deleteBooking
+  deleteBooking,
+  purgeAllBookings
 };
